@@ -75,12 +75,13 @@ function beginGame(session, player_two, game) {
 };
 
 function processRound(round, player, value) {
+  let threadPlayer = null
   if (round.player_one === player) {
     round.pone_move = value;
-    let threadPlayer = 'player_one';
+    threadPlayer = 'player_one';
   } else if (round.player_two === player) {
     round.ptwo_move = value;
-    let threadPlayer = 'player_two';
+    threadPlayer = 'player_two';
   }
 
   let processed_round = roundWon(round);
