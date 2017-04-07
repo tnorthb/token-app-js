@@ -1,8 +1,8 @@
+// This mess is part of a hackathon
+
 const SOFA = require('sofa-js');
 const Bot = require('./lib/Bot');
 const unit = require('ethjs-unit');
-
-// testing
 const Game = require('./lib/Game');
 const Round = require('./lib/Round');
 const knex = require('./lib/Pg');
