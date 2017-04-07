@@ -75,7 +75,7 @@ function beginGame(session, player_two, game) {
 };
 
 function processRound(round, player, value) {
-  let threadPlayer = null
+  let threadPlayer = null;
   if (round.player_one === player) {
     round.pone_move = value;
     threadPlayer = 'player_one';
