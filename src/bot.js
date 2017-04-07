@@ -157,7 +157,6 @@ function roundWon(round) {
     pgq.upsertItem('rounds', 'id', round);
     return round;
   } else {
-
     round.winner = (map[round.pone_move] || {})[round.ptwo_move] || console.log(JSON.stringify(round));
     return round;
   }
