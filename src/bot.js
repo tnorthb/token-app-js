@@ -55,8 +55,9 @@ function startOrCreate(session, search_results, address) {
   if (search_results[0] === undefined) {
       new Game(address);
       session.reply("You're in the queue - we're waiting for another player to join.");
-    // } else if (search_results[0].player_one === address) {
-    //   console.log('Pretend they started a new game - log for now');
+    } else if (search_results[0].player_one === address) {
+      session.reply("You are in the queue waiting on another player to join");
+      console.log('Pretend they started a new game - log for now');
     } else if (search_results[0].player_one && search_results[0].player_two === null) {
       beginGame(session, address, search_results[0]);
     } else {

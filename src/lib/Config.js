@@ -29,7 +29,9 @@ class Config {
     if (uri.protocol && uri.protocol == 'redis:') {
       this.redis.host = uri.hostname;
       this.redis.port = uri.port;
-      this.redis.password = uri.auth.split(':')[1];
+      if (uri.auth && uri.auth.indexOf(':') > -1) {
+        this.redis.password = uri.auth.split(':')[1];
+      }
     }
   }
 }
