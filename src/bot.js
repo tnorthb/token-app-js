@@ -102,7 +102,7 @@ function processRound(round, player, value) {
       .then(function(result) {findGameWinner(result[0], processed_round)})
       .catch(function(result) {console.log(result + " GAME WINNER FAIL")});
   } else {
-    bot.client.send(round[threadPlayer], "We're waiting on your opponent to decide - we'll alert you when the round is completed.");
+    bot.client.send(player, "We're waiting on your opponent to decide - we'll alert you when the round is completed.");
   };
 };
 
