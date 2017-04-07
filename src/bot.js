@@ -68,8 +68,8 @@ function startOrCreate(session, search_results, address) {
 function beginGame(session, player_two, game) {
   game.player_two = player_two;
   pgq.upsertItem('games', 'id', game);
-  // bot.client.send(game.player_one, "Player two has joined, game on!");
-  session.reply("Game on!");
+  bot.client.send(game.player_one, "Player two has joined, game on!");
+  session.reply("Player one is already here - game on!");
 
   new Round(game);
 };
