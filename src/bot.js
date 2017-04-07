@@ -2,6 +2,13 @@ const SOFA = require('sofa-js');
 const Bot = require('./lib/Bot');
 const unit = require('ethjs-unit');
 
+// testing
+const Game = require('./lib/Game');
+const Round = require('./lib/Round');
+const knex = require('./lib/Pg');
+const Queries = require('./lib/Queries');
+const pgq = new Queries;
+
 let bot = new Bot();
 
 bot.onEvent = function(session, message) {
@@ -10,73 +17,146 @@ bot.onEvent = function(session, message) {
       onMessage(session, message);
       break;
     case "Command":
-      onCommand(session, message);
+      playRound(session.address, message.content.value);
       break;
     case "PaymentRequest":
-      onPaymentRequest(session, message);
+      session.reply("No money yet - stay tuned!");
       break;
   }
 }
 
 function onMessage(session, message) {
-  if (message.content.body.includes("red")) {
-    session.reply(SOFA.Message({
-      body: "What would you like me to do for you right now?",
-      controls: [
-        {
-          type: "group",
-          label: "Trip",
-          controls: [
-            {type: "button", label: "Directions", action: "Webview:/Directions"},
-            {type: "button", label: "Timetable", value: "timetable"},
-            {type: "button", label: "Exit Info", value: "exit"},
-            {type: "button", label: "Service Conditions", action: "Webview:/ServiceConditions"}
-          ]
-        },{
-          type: "group",
-          label: "Services",
-          controls: [
-            {type: "button", label: "Buy Ticket", action: "buy-ticket"},
-            {type: "button", label: "Support", value: "support"}
-          ]
-        },
-        {type: "button", label: "Nothing", value: -1}
-      ],
-      showKeyboard: false
-    }));
-  } else {
-    sendColorPrompt(session, "I only want to talk about my favorite color. Guess what it is!");
+  joinQueue(session)
+}
+
+function continueGame(session, game) {
+  session.reply(SOFA.Message(rpsPrompt));
+}
+
+function findGameWinner(game, processed_round) {
+  knex('rounds').where({'game_id': game.id}).select()
+    .then(function(result) { findWinner(result, processed_round) })
+    .catch(function(result) {console.log(result + " FAIL")})
+};
+
+function joinQueue(session) {
+  knex('games').where({'player_two': null}).select()
+    .then(function(result) { startOrCreate(session, result, session.address); })
+    .catch(function(result) {console.log(result + " FAIL")})
+};
+
+function playRound(player, value) {
+  knex.raw('select * from rounds where (player_two = :player or player_one = :player) and winner IS NULL LIMIT 1;', {'player': player})
+    .then(function(result) { processRound(result.rows[0], player, value); })
+    .catch(function(result) {console.log(result + " ROUND FAIL")})
+};
+
+function startOrCreate(session, search_results, address) {
+  if (search_results[0] === undefined) {
+      new Game(address);
+      session.reply("You're in the queue - we're waiting for another player to join.");
+    // } else if (search_results[0].player_one === address) {
+    //   console.log('Pretend they started a new game - log for now');
+    } else if (search_results[0].player_one && search_results[0].player_two === null) {
+      beginGame(session, address, search_results[0]);
+    } else {
+      console.log('How did we get here?');
   }
-}
+};
 
-function onCommand(session, command) {
-  if (command.content.value === "red") {
-    session.reply("Yep! Red is the best");
-  } else {
-    sendColorPrompt(session, "Nope! Try again.");
+function beginGame(session, player_two, game) {
+  game.player_two = player_two;
+  pgq.upsertItem('games', 'id', game);
+  // bot.client.send(game.player_one, "Player two has joined, game on!");
+  session.reply("Game on!");
+
+  new Round(game);
+};
+
+function processRound(round, player, value) {
+  if (round.player_one === player) {
+    round.pone_move = value;
+    let threadPlayer = 'player_one';
+  } else if (round.player_two === player) {
+    round.ptwo_move = value;
+    let threadPlayer = 'player_two';
   }
-}
 
-function sendColorPrompt(session, body) {
-  session.reply(SOFA.Message({
-    body:  body,
-    controls: [
-      {type: "button", label: "Red", value: "red"},
-      {type: "button", label: "Green", value: "green"},
-      {type: "button", label: "Blue", value: "blue"}
-    ],
-    showKeyboard: false
-  }));
-}
+  let processed_round = roundWon(round);
 
-function onPaymentRequest(session, message) {
-  let limit = unit.toWei(5, 'ether');
-  if (message.value.lt(limit)) {
-    session.sendEth(message.value, (session, error, result) => {
-      if (error) { session.reply('I tried but there was an error') }
-      if (result) { session.reply('Here you go!') }
-    })
+  if (processed_round.winner) {
+    if (processed_round.winner === 'tie') {
+      bot.client.send(processed_round.player_one, "The round is a tie!");
+      bot.client.send(processed_round.player_two, "The round is a tie!");
+    } else if (processed_round.winner === 'player_one'){
+      bot.client.send(processed_round.player_one, `${processed_round.pone_move} beats ${processed_round.ptwo_move}! You take the round!`);
+      bot.client.send(processed_round.player_two, `${processed_round.ptwo_move} beats ${processed_round.pone_move}! Your opponent takes the round!`);
+    } else if (processed_round.winner === 'player_two'){
+      bot.client.send(processed_round.player_one, `${processed_round.pone_move} beats ${processed_round.ptwo_move}! Your opponent takes the round!`);
+      bot.client.send(processed_round.player_two, `${processed_round.ptwo_move} beats ${processed_round.pone_move}! You take the round!`);
+    };
+
+    knex('games').where({'id': round.game_id}).select()
+      .then(function(result) {findGameWinner(result[0], processed_round)})
+      .catch(function(result) {console.log(result + " GAME WINNER FAIL")});
   } else {
-    session.reply('Sorry, I have a 5 ETH limit.')
+    bot.client.send(round[threadPlayer], "We're waiting on your opponent to decide - we'll alert you when the round is completed.");
+  };
+};
+
+// Who won the game?
+function findWinner(rounds, processed_round) {
+  rounds.push(processed_round);
+  let required = 2
+  let map = {}
+  rounds.forEach(function(round){
+    map[round.winner] = ++map[round.winner] || 1
+  });
+  console.log(map)
+
+  delete map['null']
+  delete map['tie']
+
+  let winner = (Object.keys(map).find(key => map[key] >= 2) || null);
+  pgq.upsertItem('rounds', 'id', processed_round);
+
+  if (winner) {
+    knex('games').where({'id': processed_round.game_id})
+      .update({'winner': winner})
+      .then(function(result) {console.log(result)})
+      .catch(function(result) {console.log(result)});
+    bot.client.send(processed_round[winner], "You have won the game! Start a new one by messaging me again.");
+    let loser = null
+    if (winner === 'player_one') {
+      loser = 'player_two';
+    } else {
+      loser = 'player_one';
+    };
+    bot.client.send(processed_round[loser], "You have lost the game - you can start a new one by messaging me again!");
+  } else {
+    let gameMock = { id: processed_round.game_id, player_one: processed_round.player_one, player_two: processed_round.player_two }
+    new Round(gameMock)
+  };
+};
+
+function roundWon(round) {
+  let choices = ['rock', 'paper', 'scissors'];
+  let map = {};
+
+  // We always compare player 1 vs player 2
+  choices.forEach(function(choice, i) {
+      map[choice] = {};
+      map[choice][choice] = 'tie';
+      map[choice][choices[(i+1)%3]] = 'player_two';
+      map[choice][choices[(i+2)%3]] = 'player_one';
+  })
+
+  if (round.pone_move === null || round.ptwo_move === null) {
+    pgq.upsertItem('rounds', 'id', round);
+    return round;
+  } else {
+
+    round.winner = (map[round.pone_move] || {})[round.ptwo_move] || console.log(JSON.stringify(round));
+    return round;
   }
 }

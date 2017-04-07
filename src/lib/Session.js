@@ -3,6 +3,8 @@ const fs = require('fs');
 const mkdirp = require('mkdirp');
 const pg = require('pg');
 const url = require('url')
+const unit = require('ethjs-unit');
+const SOFA = require('sofa-js');
 
 class Session {
   constructor(bot, address, onReady) {
@@ -40,6 +42,9 @@ class Session {
   }
 
   get(key) {
+    if (key === 'tokenId') {
+      return this.address;
+    }
     return this.data[key];
   }
 
@@ -79,11 +84,11 @@ class Session {
   }
 
   reply(message) {
-    this.bot.client.send(this, message);
+    this.bot.client.send(this.address, message);
   }
 
   sendEth(value, callback) {
-    value = '0x'+value.toString(16)
+    value = '0x' + unit.toWei(value, 'ether').toString(16)
     this.bot.client.rpc(this, {
       method: "sendTransaction",
       params: {
@@ -93,6 +98,15 @@ class Session {
     }, (session, error, result) => {
       if (callback) { callback(session, error, result); }
     });
+  }
+
+  requestEth(value, message) {
+    value = '0x' + unit.toWei(value, 'ether').toString(16)
+    this.reply(SOFA.PaymentRequest({
+      body: message,
+      value: value,
+      destinationAddress: this.config.paymentAddress
+    }));
   }
 
   load(onReady) {
