@@ -91,9 +91,9 @@ function processRound(round, player, value) {
       bot.client.send(processed_round.player_two, "The round is a tie!");
     } else if (processed_round.winner === 'player_one'){
       bot.client.send(processed_round.player_one, `${processed_round.pone_move} beats ${processed_round.ptwo_move}! You take the round!`);
-      bot.client.send(processed_round.player_two, `${processed_round.ptwo_move} beats ${processed_round.pone_move}! Your opponent takes the round!`);
+      bot.client.send(processed_round.player_two, `${processed_round.pone_move} beats ${processed_round.ptwo_move}! Your opponent takes the round!`);
     } else if (processed_round.winner === 'player_two'){
-      bot.client.send(processed_round.player_one, `${processed_round.pone_move} beats ${processed_round.ptwo_move}! Your opponent takes the round!`);
+      bot.client.send(processed_round.player_one, `${processed_round.ptwo_move} beats ${processed_round.pone_move}! Your opponent takes the round!`);
       bot.client.send(processed_round.player_two, `${processed_round.ptwo_move} beats ${processed_round.pone_move}! You take the round!`);
     };
 
